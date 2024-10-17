@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rimuovi Bande Bianche</title>
+</head>
+<body>
+    <input type="file" id="upload" accept="image/*">
+    <canvas id="canvas" style="display:none;"></canvas>
+    <a id="download" style="display:none;">Scarica l'immagine</a>
+
+    <script>
+        document.getElementById('upload').addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const img = new Image();
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+
+            img.onload = function () {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const data = imageData.data;
+
+                // Tolleranza per il bianco (0 = bianco puro, 255 = tolleranza massima)
+                const tolerance = 10;
+
+                function isWhite(r, g, b, a) {
+                    return r >= 255 - tolerance && g >= 255 - tolerance && b >= 255 - tolerance && a === 255;
+                }
+
+                let topBound = 0, bottomBound = canvas.height;
+                let leftBound = 0, rightBound = canvas.width;
+
+                // Rileva banda bianca superiore
+                for (let y = 0; y < canvas.height; y++) {
+                    let isRowWhite = true;
+                    for (let x = 0; x < canvas.width; x++) {
+                        const index = (y * canvas.width + x) * 4;
+                        if (!isWhite(data[index], data[index + 1], data[index + 2], data[index + 3])) {
+                            isRowWhite = false;
+                            break;
+                        }
+                    }
+                    if (!isRowWhite) {
+                        topBound = y;
+                        break;
+                    }
+                }
+
+                // Rileva banda bianca inferiore
+                for (let y = canvas.height - 1; y >= 0; y--) {
+                    let isRowWhite = true;
+                    for (let x = 0; x < canvas.width; x++) {
+                        const index = (y * canvas.width + x) * 4;
+                        if (!isWhite(data[index], data[index + 1], data[index + 2], data[index + 3])) {
+                            isRowWhite = false;
+                            break;
+                        }
+                    }
+                    if (!isRowWhite) {
+                        bottomBound = y;
+                        break;
+                    }
+                }
+
+                // Rileva banda bianca sinistra
+                for (let x = 0; x < canvas.width; x++) {
+                    let isColWhite = true;
+                    for (let y = 0; y < canvas.height; y++) {
+                        const index = (y * canvas.width + x) * 4;
+                        if (!isWhite(data[index], data[index + 1], data[index + 2], data[index + 3])) {
+                            isColWhite = false;
+                            break;
+                        }
+                    }
+                    if (!isColWhite) {
+                        leftBound = x;
+                        break;
+                    }
+                }
+
+                // Rileva banda bianca destra
+                for (let x = canvas.width - 1; x >= 0; x--) {
+                    let isColWhite = true;
+                    for (let y = 0; y < canvas.height; y++) {
+                        const index = (y * canvas.width + x) * 4;
+                        if (!isWhite(data[index], data[index + 1], data[index + 2], data[index + 3])) {
+                            isColWhite = false;
+                            break;
+                        }
+                    }
+                    if (!isColWhite) {
+                        rightBound = x;
+                        break;
+                    }
+                }
+
+                const croppedWidth = rightBound - leftBound;
+                const croppedHeight = bottomBound - topBound;
+
+                // Ritaglia e ridimensiona l'immagine
+                const croppedData = ctx.getImageData(leftBound, topBound, croppedWidth, croppedHeight);
+                canvas.width = croppedWidth;
+                canvas.height = croppedHeight;
+                ctx.putImageData(croppedData, 0, 0);
+
+                // Ridimensiona l'immagine per riempire l'area originale
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCanvas.width = img.width;
+                tempCanvas.height = img.height;
+                tempCtx.drawImage(canvas, 0, 0, croppedWidth, croppedHeight, 0, 0, img.width, img.height);
+
+                // Sostituisci il contenuto del canvas originale con l'immagine ridimensionata
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(tempCanvas, 0, 0);
+
+                // Opzione per scaricare l'immagine modificata
+                document.getElementById('download').style.display = 'block';
+                document.getElementById('download').href = canvas.toDataURL();
+                document.getElementById('download').download = 'immagine_modificata.png';
+                document.getElementById('download').innerText = 'Scarica l\'immagine';
+            };
+
+            img.src = URL.createObjectURL(file);
+        });
+    </script>
+</body>
+</html>
